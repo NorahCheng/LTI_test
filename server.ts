@@ -50,6 +50,12 @@ async function startServer() {
 
   // Helper to get base URL
   const getAppUrl = (req: express.Request) => {
+    if (process.env.RENDER_EXTERNAL_URL) {
+      return process.env.RENDER_EXTERNAL_URL;
+    }
+    if (process.env.APP_URL) {
+      return process.env.APP_URL;
+    }
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const host = req.headers['x-forwarded-host'] || req.headers.host;
     return `${protocol}://${host}`;
@@ -165,7 +171,7 @@ async function startServer() {
 
   // API to fetch platform config details (so frontend can show them to the user)
   app.get("/api/platform-info", (req, res) => {
-    const appUrl = process.env.APP_URL || `http://localhost:${PORT}`;
+    const appUrl = getAppUrl(req);
     res.json({
       issuer: appUrl,
       authUrl: `${appUrl}/api/lti/auth`,
