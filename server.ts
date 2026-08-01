@@ -66,7 +66,8 @@ async function startServer() {
     const { 
       target_link_uri, 
       login_initiation_url, 
-      client_id 
+      client_id,
+      launch_type
     } = req.body;
 
     if (!target_link_uri || !login_initiation_url || !client_id) {
@@ -80,7 +81,8 @@ async function startServer() {
     params.append('iss', appUrl);
     params.append('target_link_uri', target_link_uri);
     params.append('login_hint', 'user-123'); // Fixed for mock
-    params.append('lti_message_hint', 'whiteboard-launch'); 
+    // Pass the launch type through the message hint
+    params.append('lti_message_hint', launch_type === 'deep_link' ? 'deep_link' : 'resource_link'); 
     params.append('client_id', client_id);
     params.append('lti_deployment_id', 'deployment-1');
 
@@ -101,7 +103,8 @@ async function startServer() {
         state, 
         nonce, 
         login_hint, 
-        prompt 
+        prompt,
+        lti_message_hint
       } = query;
 
       if (!client_id || !redirect_uri || !nonce) {
@@ -113,9 +116,11 @@ async function startServer() {
 
       // App URL should be configured in env, default to local if missing
       const appUrl = getAppUrl(req);
+      
+      const isDeepLink = lti_message_hint === 'deep_link';
 
       // Create LTI 1.3 id_token
-      const jwtPayload = {
+      const jwtPayload: any = {
         iss: appUrl,
         sub: login_hint || "user-123",
         aud: client_id,
@@ -124,14 +129,10 @@ async function startServer() {
         given_name: "Test",
         family_name: "Instructor",
         email: "test@example.com",
-        "https://purl.imsglobal.org/spec/lti/claim/message_type": "LtiResourceLinkRequest",
+        "https://purl.imsglobal.org/spec/lti/claim/message_type": isDeepLink ? "LtiDeepLinkingRequest" : "LtiResourceLinkRequest",
         "https://purl.imsglobal.org/spec/lti/claim/version": "1.3.0",
         "https://purl.imsglobal.org/spec/lti/claim/deployment_id": "deployment-1",
         "https://purl.imsglobal.org/spec/lti/claim/target_link_uri": redirect_uri,
-        "https://purl.imsglobal.org/spec/lti/claim/resource_link": {
-          id: "link-1",
-          title: "Mock Whiteboard"
-        },
         "https://purl.imsglobal.org/spec/lti/claim/roles": [
           "http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor"
         ],
@@ -142,6 +143,23 @@ async function startServer() {
           type: ["CourseSection"]
         }
       };
+
+      if (isDeepLink) {
+        jwtPayload["https://purl.imsglobal.org/spec/lti-dl/claim/deep_linking_settings"] = {
+          deep_link_return_url: `${appUrl}/api/lti/deep_link_return`,
+          accept_types: ["link", "file", "html", "ltiResourceLink", "image"],
+          accept_presentation_document_targets: ["iframe", "window", "embed"],
+          accept_multiple: true,
+          auto_create: true,
+          title: "Select Content",
+          text: "Select Content"
+        };
+      } else {
+        jwtPayload["https://purl.imsglobal.org/spec/lti/claim/resource_link"] = {
+          id: "link-1",
+          title: "Mock Whiteboard"
+        };
+      }
 
       const jwt = await new jose.SignJWT(jwtPayload)
         .setProtectedHeader({ alg: 'RS256', kid })
@@ -167,6 +185,35 @@ async function startServer() {
       console.error(error);
       res.status(500).send("Error generating LTI launch");
     }
+  });
+
+  // Deep linking return endpoint
+  app.post("/api/lti/deep_link_return", express.urlencoded({ extended: true }), (req, res) => {
+    const { JWT } = req.body;
+    
+    const html = `
+      <html>
+        <head>
+          <title>Deep Link Return</title>
+          <style>
+            body { font-family: system-ui, sans-serif; padding: 2rem; background: #f8fafc; color: #334155; }
+            .container { max-width: 800px; margin: 0 auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+            h1 { margin-top: 0; color: #0f172a; font-size: 1.5rem; }
+            pre { background: #f1f5f9; padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.875rem; }
+            .success { color: #10b981; font-weight: 600; margin-bottom: 1rem; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>Content Selected Successfully</h1>
+            <div class="success">The tool has returned the following deep linking payload:</div>
+            <p><strong>Raw JWT:</strong></p>
+            <pre>${JWT || 'No JWT received'}</pre>
+          </div>
+        </body>
+      </html>
+    `;
+    res.send(html);
   });
 
   // API to fetch platform config details (so frontend can show them to the user)

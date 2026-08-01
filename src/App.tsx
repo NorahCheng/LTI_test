@@ -10,6 +10,7 @@ export default function App() {
   const [loginUrl, setLoginUrl] = useState('https://benqldb.h5p.com/lti/login');
   const [targetUrl, setTargetUrl] = useState('https://benqldb.h5p.com/lti/launch');
   const [clientId, setClientId] = useState('12345');
+  const [launchType, setLaunchType] = useState('resource_link');
   const [showIframe, setShowIframe] = useState(false);
 
   useEffect(() => {
@@ -147,16 +148,29 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Client ID</label>
-                <input 
-                  type="text" 
-                  required
-                  value={clientId}
-                  onChange={e => setClientId(e.target.value)}
-                  placeholder="e.g. 12345"
-                  className="bg-white border border-slate-200 rounded px-3 py-2 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Client ID</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={clientId}
+                    onChange={e => setClientId(e.target.value)}
+                    placeholder="e.g. 12345"
+                    className="bg-white border border-slate-200 rounded px-3 py-2 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Launch Type</label>
+                  <select 
+                    value={launchType}
+                    onChange={e => setLaunchType(e.target.value)}
+                    className="bg-white border border-slate-200 rounded px-3 py-2 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  >
+                    <option value="resource_link">Resource Link (View Content)</option>
+                    <option value="deep_link">Deep Linking (Select Content)</option>
+                  </select>
+                </div>
               </div>
 
               <div className="pt-2 flex justify-end">
@@ -213,6 +227,7 @@ export default function App() {
                     <input type="hidden" name="login_initiation_url" value={loginUrl} />
                     <input type="hidden" name="target_link_uri" value={targetUrl} />
                     <input type="hidden" name="client_id" value={clientId} />
+                    <input type="hidden" name="launch_type" value={launchType} />
                   </form>
                 )}
                 
